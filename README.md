@@ -75,6 +75,8 @@ This is not a sandbox for the Java launcher: `JAVA_TOOL_OPTIONS`, `JDK_JAVA_OPTI
 
 Run `java Build.java` after code changes. Tests use isolated temporary fixtures, including missing compilers, conflicting versions, invalid files, JSON escaping, and secret-value suppression. See [CONTRIBUTING.md](CONTRIBUTING.md) and the [build and release instructions](docs/publishing.md).
 
+The [development and maintenance roadmap (Chinese)](docs/roadmap.md) outlines the first-year milestones and longer-term direction.
+
 ## License
 
 [MIT](LICENSE).

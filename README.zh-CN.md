@@ -52,6 +52,7 @@ java -jar build/jdk-compass.jar --project /你的项目路径 --expect 21 --json
 修改代码后运行 `java Build.java`，完成编译和测试。提交问题时请提供最小复现、实际输出和预期输出。
 
 - [贡献指南](CONTRIBUTING.md)
+- [开发与维护路线图](docs/roadmap.md)
 - [构建与发布](docs/publishing.md)
 - [报告格式](docs/report-format.md)
 
