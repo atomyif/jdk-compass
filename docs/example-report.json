@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "toolVersion": "0.1.0",
+  "exitCode": 0,
+  "findings": [
+    {
+      "code": "REQUIREMENT",
+      "severity": "INFO",
+      "message": "Required Java major: 17; source: [.java-version]",
+      "suggestion": ""
+    },
+    {
+      "code": "RUNTIME",
+      "severity": "INFO",
+      "message": "This diagnostic process runs on Java 17.",
+      "suggestion": "This is not necessarily the JDK selected inside your IDE."
+    },
+    {
+      "code": "JDK_HOME_VERSION",
+      "severity": "INFO",
+      "message": "JAVA_HOME declares Java 17.",
+      "suggestion": ""
+    }
+  ]
+}

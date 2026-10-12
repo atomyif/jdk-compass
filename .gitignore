@@ -1,0 +1,7 @@
+/build/
+# Local tool metadata directories; retain shared repository automation.
+/.*/
+!/.github/
+*.iml
+.DS_Store
+*.log
