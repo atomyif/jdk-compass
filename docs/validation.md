@@ -18,3 +18,11 @@ These results describe local verification only, not hosted CI runs or community 
 The behavior tests additionally cover legacy version syntax, vendor suffixes, oversized files, non-regular files, unsupported aliases, missing compiler, invalid release metadata, environment-variable value suppression, JSON escaping, and read-only inspection.
 
 Windows/Linux and Java 21 have not been run locally. A GitHub Actions matrix is included; its presence is not evidence that those runs have passed.
+
+## Markdown report validation — 2026-10-13
+
+- macOS, Oracle JDK 17.0.12: `java Build.java` passed all 30 behavior scenarios and built the 0.2.0 JAR.
+- Packaged JAR: matching Java 17 in strict Markdown mode returned 0; conflicting version files returned 1 with a FAIL report.
+- Combined `--markdown --json` returned 2, with stderr only; JSON schema version 1 remained readable by a JSON parser.
+- Behavior tests covered strict warnings, Markdown cell escaping, environment-value suppression, and omitted local paths.
+- The initial hosted [CI run](https://github.com/atomyif/jdk-compass/actions/runs/38209222884) passed all nine OS/JDK combinations for commit `ed830cc`; each later commit has its own CI result.

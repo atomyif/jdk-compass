@@ -129,6 +129,45 @@ public final class MainTest {
                 check(r.exit == 2 && r.out.isEmpty() && r.err.contains("Invalid arguments"), r.toString());
             }
         });
+        test("Markdown report includes diagnostics and suggestions", root -> {
+            Result r = run(root, "21", Map.of(), "--expect", "21", "--markdown");
+            check(r.exit == 0 && r.err.isEmpty() && r.out.startsWith("## JDK Compass " + Main.VERSION), r.toString());
+            check(r.out.contains("Result: **PASS**")
+                    && r.out.contains("| Severity | Code | Message | Suggestion |")
+                    && r.out.contains("| INFO | REQUIREMENT | Required Java major: 21;")
+                    && r.out.contains("| INFO | RUNTIME | This diagnostic process runs on Java 21.")
+                    && r.out.contains("This is not necessarily the JDK selected inside your IDE."), r.out);
+        });
+        test("Markdown preserves error and strict warning exit codes", root -> {
+            Result mismatch = run(root, "21", Map.of(), "--expect", "17", "--markdown");
+            check(mismatch.exit == 1 && mismatch.out.contains("Result: **FAIL**")
+                    && mismatch.out.contains("| ERROR | RUNTIME\\_VERSION\\_MISMATCH |"), mismatch.out);
+            Result warning = run(root, "21", Map.of(), "--markdown");
+            check(warning.exit == 0 && warning.out.contains("Result: **PASS**")
+                    && warning.out.contains("| WARN | REQUIREMENT\\_UNKNOWN |"), warning.out);
+            Result strict = run(root, "21", Map.of(), "--strict", "--markdown");
+            check(strict.exit == 1 && strict.out.contains("Result: **FAIL**"), strict.out);
+        });
+        test("Markdown and JSON flags conflict in either order", root -> {
+            for (String[] flags : List.of(new String[]{"--json", "--markdown"},
+                    new String[]{"--markdown", "--json"})) {
+                Result r = run(root, "21", Map.of(), flags);
+                check(r.exit == 2 && r.out.isEmpty() && r.err.contains("cannot be combined"), r.toString());
+            }
+        });
+        test("Markdown keeps environment values and paths private", root -> {
+            Result r = run(root, "21", Map.of("JAVA_TOOL_OPTIONS", "-Dpassword=SECRET_SENTINEL"),
+                    "--expect", "21", "--markdown");
+            check(r.out.contains("JVM\\_OPTIONS\\_PRESENT") && !r.out.contains("SECRET_SENTINEL")
+                    && !r.out.contains(root.toString()) && !r.out.contains(root.getFileName().toString()), r.out);
+        });
+        test("Markdown escapes table separators, markup and line breaks", root -> {
+            String report = Main.markdown(List.of(new Main.Finding("TEST", "INFO",
+                    "one|two\\three\r\nfour\rfive\nsix", "<b>& *bold* _em_ `code` [link](url)")), 0);
+            check(report.contains("one\\|two\\\\three<br>four<br>five<br>six"), report);
+            check(report.contains("&lt;b&gt;&amp; \\*bold\\* \\_em\\_ \\`code\\` \\[link\\](url)"), report);
+            check(report.lines().count() == 7, "cell line breaks must not create table rows: " + report);
+        });
         test("inspection does not modify project", root -> {
             Path file = root.resolve(".java-version");
             Files.writeString(file, "21\n");
@@ -144,7 +183,7 @@ public final class MainTest {
             Files.writeString(jdk.resolve("bin/java.exe"), "fixture");
             Files.writeString(jdk.resolve("bin/javac.exe"), "fixture");
             Files.writeString(jdk.resolve("release"), "JAVA_VERSION=\"21.0.5\"\n");
-            var results = Main.inspect(new Main.Options(root, jdk, 21, false, false),
+            var results = Main.inspect(new Main.Options(root, jdk, 21, false, false, false),
                     new Main.Environment(jdk, 21, Map.of(), true));
             check(results.stream().noneMatch(f -> f.severity().equals("ERROR")), results.toString());
         });

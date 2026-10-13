@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
 
 /** Read-only checks for differences between a project's Java requirement and its environment. */
 public final class Main {
-    public static final String VERSION = "0.1.0";
+    public static final String VERSION = "0.2.0";
     private static final int MAX_FILE_BYTES = 65_536;
     private static final Pattern VERSION_TOKEN = Pattern.compile(
             "(?:[A-Za-z][A-Za-z0-9]*-)?(1\\.[0-9]+|[0-9]+)(?:[._+\\-][A-Za-z0-9._+\\-]+)?");
@@ -24,7 +24,8 @@ public final class Main {
     public record Finding(String code, String severity, String message, String suggestion) { }
     public record Environment(Path runtimeHome, int runtimeMajor, Map<String, String> variables,
                               boolean windows) { }
-    public record Options(Path project, Path javaHome, Integer expected, boolean json, boolean strict) { }
+    public record Options(Path project, Path javaHome, Integer expected, boolean json, boolean strict,
+                          boolean markdown) { }
     private record Requirement(String source, int major) { }
 
     public static void main(String[] args) {
@@ -44,6 +45,7 @@ public final class Main {
                           --java-home PATH  Inspect this JDK instead of JAVA_HOME
                           --expect MAJOR    Explicit required Java major; overrides project files
                           --json            Emit schema-versioned JSON
+                          --markdown        Emit a Markdown report (cannot combine with --json)
                           --strict          Return failure for warnings as well as errors
                           --version         Print version
                           --help            Print this help
@@ -63,6 +65,8 @@ public final class Main {
                     || options.strict() && f.severity().equals("WARN")) ? 1 : 0;
             if (options.json()) {
                 out.println(json(findings, exit));
+            } else if (options.markdown()) {
+                out.print(markdown(findings, exit));
             } else {
                 out.println("JDK Compass " + VERSION);
                 for (Finding finding : findings) {
@@ -84,10 +88,12 @@ public final class Main {
         Integer expected = null;
         boolean json = false;
         boolean strict = false;
+        boolean markdown = false;
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--json" -> json = true;
                 case "--strict" -> strict = true;
+                case "--markdown" -> markdown = true;
                 case "--project", "--java-home", "--expect" -> {
                     String flag = args[i];
                     if (++i == args.length || args[i].startsWith("--")) {
@@ -108,7 +114,8 @@ public final class Main {
                 default -> throw new IllegalArgumentException("unknown option " + args[i]);
             }
         }
-        return new Options(project.toAbsolutePath().normalize(), home, expected, json, strict);
+        if (json && markdown) throw new IllegalArgumentException("--json and --markdown cannot be combined");
+        return new Options(project.toAbsolutePath().normalize(), home, expected, json, strict, markdown);
     }
 
     static List<Finding> inspect(Options options, Environment environment) {
@@ -255,6 +262,39 @@ public final class Main {
             if (bytes.length > MAX_FILE_BYTES) throw new IOException("file too large");
             return new String(bytes, StandardCharsets.UTF_8);
         }
+    }
+
+    static String markdown(List<Finding> findings, int exit) {
+        StringBuilder result = new StringBuilder("## JDK Compass ").append(VERSION)
+                .append("\n\nResult: **").append(exit == 0 ? "PASS" : "FAIL").append("**\n\n")
+                .append("| Severity | Code | Message | Suggestion |\n")
+                .append("| --- | --- | --- | --- |\n");
+        for (Finding finding : findings) {
+            result.append("| ").append(markdownCell(finding.severity()))
+                    .append(" | ").append(markdownCell(finding.code()))
+                    .append(" | ").append(markdownCell(finding.message()))
+                    .append(" | ").append(markdownCell(finding.suggestion())).append(" |\n");
+        }
+        return result.toString();
+    }
+
+    private static String markdownCell(String text) {
+        StringBuilder result = new StringBuilder();
+        String normalized = text.replace("\r\n", "\n").replace('\r', '\n');
+        for (int i = 0; i < normalized.length(); i++) {
+            char c = normalized.charAt(i);
+            switch (c) {
+                case '&' -> result.append("&amp;");
+                case '<' -> result.append("&lt;");
+                case '>' -> result.append("&gt;");
+                case '\n' -> result.append("<br>");
+                default -> {
+                    if ("\\|`*_[]".indexOf(c) >= 0) result.append('\\');
+                    result.append(c);
+                }
+            }
+        }
+        return result.toString();
     }
 
     static String json(List<Finding> findings, int exit) {

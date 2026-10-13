@@ -6,7 +6,7 @@ A small, dependency-free command-line tool that explains why a Java project's ve
 
 JDK Compass is useful when a project builds on one machine but fails on another, or when an IDE and a terminal appear to use different JDKs. It inspects configuration; it does not switch your JDK or run the project's build scripts.
 
-**Status:** early MVP, version 0.1.0. Build from source using the instructions below; packaged GitHub releases are not available yet. The initial implementation was developed with AI assistance.
+**Status:** early MVP, version 0.2.0. Build from source using the instructions below; packaged GitHub releases are not available yet. The initial implementation was developed with AI assistance.
 
 ## Quick start
 
@@ -49,11 +49,19 @@ All three version files are read from the supplied project root only. Version co
 
 Use `--json` for a machine-readable report with `schemaVersion`, `toolVersion`, `exitCode`, and `findings`. Each finding contains `code`, `severity`, `message`, and `suggestion`.
 
+Use `--markdown` for a table you can paste into an issue or pull request. To save a report, redirect standard output:
+
+```sh
+java -jar build/jdk-compass.jar --project /path/to/project --expect 21 --markdown > jdk-report.md
+```
+
+The report includes the PASS/FAIL result, severity, finding code, message, and suggested action. Markdown uses the same checks and exit codes as text and JSON, including `--strict`. Choose either `--json` or `--markdown`; combining them is an argument error. See [report format](docs/report-format.md) for an example.
+
 | Exit code | Meaning |
 | --- | --- |
 | `0` | No errors; warnings may still exist |
 | `1` | At least one error, or at least one warning when `--strict` is set |
-| `2` | Invalid command-line arguments; error goes to stderr, with no JSON output |
+| `2` | Invalid command-line arguments; error goes to stderr, with no report |
 
 `--help` and `--version` must be used on their own. Scripts should key on finding codes, not English message text. See [report format](docs/report-format.md).
 
@@ -69,7 +77,7 @@ This is not a sandbox for the Java launcher: `JAVA_TOOL_OPTIONS`, `JDK_JAVA_OPTI
 - Does not read Maven profiles, `pom.xml`, Gradle toolchains, or editor-specific project settings yet.
 - Examines the JVM that launched the tool, not every Java executable on `PATH` or an IDE's selected SDK.
 - Does not validate that an inspected executable's contents match its `release` metadata.
-- Local validation covers macOS; the included GitHub Actions matrix must pass on actual hosted runners before claiming Windows/Linux support is verified.
+- The initial GitHub Actions matrix passed on macOS, Windows, and Linux with Java 17, 21, and 25. Check [CI](https://github.com/atomyif/jdk-compass/actions) for the status of each subsequent commit.
 
 ## Development
 

@@ -4,7 +4,7 @@
 
 一个用于排查 Java 环境不一致问题的命令行工具：项目要求 Java 21，终端却在跑 Java 17，或者 `JAVA_HOME` 指向另一个 JDK 时，给出具体原因和处理建议。
 
-**当前状态：0.1.0 初期 MVP，尚未提供 GitHub Release 安装包。** 可按下方说明从源码构建。初始代码由 AI 辅助开发；后续贡献需要理解、审查并在真实项目中验证。
+**当前状态：0.2.0 初期 MVP，尚未提供 GitHub Release 安装包。** 可按下方说明从源码构建。初始代码由 AI 辅助开发；后续贡献需要理解、审查并在真实项目中验证。
 
 ## 运行
 
@@ -28,6 +28,16 @@ java -jar build/jdk-compass.jar --project /你的项目路径 --expect 21 --json
 
 在编辑器中打开项目目录，设置项目 SDK 为 JDK 17+，在终端执行 `java Build.java` 即可。
 
+### 导出 Markdown 报告
+
+添加 `--markdown` 可生成包含检查结果、严重级别、诊断代码、原因和处理建议的表格，方便贴到 Issue 或 PR：
+
+```sh
+java -jar build/jdk-compass.jar --project /你的项目路径 --expect 21 --markdown > jdk-report.md
+```
+
+文件保存由终端重定向完成。Markdown 模式保留原有退出码和 `--strict` 行为；有错误时仍会输出报告。`--markdown` 和 `--json` 不能同时使用，冲突时返回退出码 `2`，只向标准错误输出提示。
+
 ## 已实现
 
 - 读取项目根目录的 `.java-version`、`.sdkmanrc` 和 `.tool-versions`。
@@ -35,7 +45,7 @@ java -jar build/jdk-compass.jar --project /你的项目路径 --expect 21 --json
 - 比较项目要求、当前运行 JVM 和 `JAVA_HOME` 的 Java 主版本。
 - 检查 JDK 目录、`java`、`javac` 以及 `release` 文件。
 - 当 `JAVA_HOME` 与实际运行环境不是同一个目录时给出警告。
-- 输出文本或 JSON 报告；报告不包含环境变量原文及绝对路径。
+- 输出文本、JSON 或 Markdown 报告；报告不包含环境变量原文及绝对路径。
 
 退出码：`0` 无错误，`1` 检查失败，`2` 命令参数错误。没有找到支持的版本声明时会警告，不代表项目不需要特定版本。
 
@@ -45,7 +55,7 @@ java -jar build/jdk-compass.jar --project /你的项目路径 --expect 21 --json
 
 当前不解析 Maven、Gradle 和编辑器的项目 SDK；只比较主版本，不比较补丁版本或厂商。`latest`、多个候选版本等动态声明暂不支持。即使两套 JDK 的主版本相同，只要目录不同，也会提示检查。
 
-本地已验证 macOS；Windows/Linux 的工作流已准备，但要等公开仓库中的 CI 实际通过后才能称已验证。
+首次 GitHub Actions 验证已通过 macOS、Windows、Linux 与 Java 17、21、25 的九种组合。后续提交的验证状态见 [CI](https://github.com/atomyif/jdk-compass/actions)。
 
 ## 开发与贡献
 

@@ -3,7 +3,7 @@
 ```json
 {
   "schemaVersion": 1,
-  "toolVersion": "0.1.0",
+  "toolVersion": "0.2.0",
   "exitCode": 0,
   "findings": [
     {
@@ -41,3 +41,23 @@ Current codes:
 | JVM_OPTIONS_PRESENT | A JVM startup variable is set; its value is omitted |
 
 An invalid invocation returns exit code 2 and prints a short error to stderr; it produces no report. Diagnostic errors return code 1 and remain represented in JSON. Warnings affect the exit code only under `--strict`.
+
+## Markdown reports
+
+`--markdown` emits a human-readable report to stdout. It contains a heading, a PASS/FAIL result, and one table row per finding:
+
+```markdown
+## JDK Compass 0.2.0
+
+Result: **PASS**
+
+| Severity | Code | Message | Suggestion |
+| --- | --- | --- | --- |
+| INFO | RUNTIME | This diagnostic process runs on Java 17. | This is not necessarily the JDK selected inside your IDE. |
+```
+
+This excerpt shows one finding, not a complete run. Table separators, backslashes, inline Markdown markup, and HTML delimiters in cells are escaped; line breaks become `<br>`. Empty suggestions remain blank. Environment-variable values and absolute paths remain omitted.
+
+Markdown uses the same exit policy as text and JSON. Warnings can appear in a PASS report unless `--strict` is selected; diagnostic errors produce a FAIL report and exit code 1. `--json --markdown` is invalid in either order and produces exit code 2 with stderr only. Shell redirection creates or overwrites the destination file, not the diagnostic program itself.
+
+Markdown layout is intended for people and may evolve; use JSON schema version 1 for automation.
