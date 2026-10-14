@@ -6,7 +6,7 @@ A small, dependency-free command-line tool that explains why a Java project's ve
 
 JDK Compass is useful when a project builds on one machine but fails on another, or when an IDE and a terminal appear to use different JDKs. It inspects configuration; it does not switch your JDK or run the project's build scripts.
 
-**Status:** early MVP, version 0.2.0. Build from source using the instructions below; packaged GitHub releases are not available yet. The initial implementation was developed with AI assistance.
+**Status:** early MVP, version 0.3.0. Build from source using the instructions below; packaged GitHub releases are not available yet. The initial implementation was developed with AI assistance.
 
 ## Quick start
 
@@ -43,7 +43,19 @@ In your editor, open this directory, select a JDK 17+ SDK, and use a terminal to
 | Different runtime/JDK home | Warning, even when both have the same major version |
 | JVM option environment variables | Reports presence only, not their contents |
 
-All three version files are read from the supplied project root only. Version comparison is exact at the **major version** level, not a claim about source compatibility, patch level, or vendor compatibility. Aliases such as `latest`, `lts`, and `system`, and multiple fallback versions, are not interpreted. A single optional alphanumeric vendor prefix followed by `-` is accepted; this is not a complete SDKMAN/asdf version grammar.
+By default, all three version files are read only from the directory selected by `--project`. Version comparison is exact at the **major version** level, not a claim about source compatibility, patch level, or vendor compatibility. Aliases such as `latest`, `lts`, and `system`, and multiple fallback versions, are not interpreted. A single optional alphanumeric vendor prefix followed by `-` is accepted; this is not a complete SDKMAN/asdf version grammar.
+
+### Find configuration from a subdirectory
+
+Use `--search-parents` when checking a directory below the project root:
+
+```sh
+java -jar build/jdk-compass.jar --project /path/to/project/src --search-parents --json
+```
+
+The search starts at the selected directory and walks its normalized path's parents. It stops at the nearest directory containing any of the three supported filenames, or at a directory containing a `.git` entry (a directory or worktree file), or the filesystem root. Configuration in the stopping directory is checked; files from different directories are never merged. A nearest configuration with invalid content, or no Java declaration, does not fall back to a more distant directory. `--expect` bypasses discovery entirely.
+
+Reported sources stay relative to the selected directory, such as `../.java-version`. The tool does not invoke Git, follow the destination described in a `.git` file, or traverse sibling directories. Parent traversal is lexical; symbolic links are followed when accessing files, so this is not a filesystem isolation boundary.
 
 ## Reports and exit codes
 
@@ -67,7 +79,7 @@ The report includes the PASS/FAIL result, severity, finding code, message, and s
 
 ## Privacy and boundaries
 
-The diagnostic code makes no network calls and does not execute project files, JDK executables found at the inspected path, or shell startup scripts. It reads only the root version files and selected JDK's `release` file, with a 64 KiB limit per file; ordinary filesystem symbolic links are followed. Reports omit absolute paths and environment-variable values.
+The diagnostic code makes no network calls and does not execute project files, JDK executables found at the inspected path, or shell startup scripts. It reads supported version files from the selected directory (or the nearest configuration directory with `--search-parents`) and the selected JDK's `release` file, with a 64 KiB limit per file; ordinary filesystem symbolic links are followed. Reports omit absolute paths and environment-variable values.
 
 This is not a sandbox for the Java launcher: `JAVA_TOOL_OPTIONS`, `JDK_JAVA_OPTIONS`, and `_JAVA_OPTIONS` may already affect the JVM or be printed by Java **before** this program starts. Review raw terminal output before sharing it. The build command executes this repository's own build and test code.
 

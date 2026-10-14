@@ -4,7 +4,7 @@
 
 一个用于排查 Java 环境不一致问题的命令行工具：项目要求 Java 21，终端却在跑 Java 17，或者 `JAVA_HOME` 指向另一个 JDK 时，给出具体原因和处理建议。
 
-**当前状态：0.2.0 初期 MVP，尚未提供 GitHub Release 安装包。** 可按下方说明从源码构建。初始代码由 AI 辅助开发；后续贡献需要理解、审查并在真实项目中验证。
+**当前状态：0.3.0 初期 MVP，尚未提供 GitHub Release 安装包。** 可按下方说明从源码构建。初始代码由 AI 辅助开发；后续贡献需要理解、审查并在真实项目中验证。
 
 ## 运行
 
@@ -28,6 +28,18 @@ java -jar build/jdk-compass.jar --project /你的项目路径 --expect 21 --json
 
 在编辑器中打开项目目录，设置项目 SDK 为 JDK 17+，在终端执行 `java Build.java` 即可。
 
+### 从子目录查找配置
+
+使用 `--search-parents`，可以在 `src` 等子目录中找到上层项目的版本配置：
+
+```sh
+java -jar build/jdk-compass.jar --project /你的项目路径/src --search-parents --json
+```
+
+从选定目录开始，沿规范化路径逐级向上，找到任一受支持文件名所在的最近目录后停止。遇到 `.git` 目录、工作树的 `.git` 文件或文件系统根目录时，也会停止向上查找，但仍检查该目录中的配置。不同目录的配置不会合并；最近的配置无效或没有 Java 声明时，不会回退到更上层。`--expect` 会直接跳过配置查找。
+
+来源显示为 `../.java-version` 等相对路径，不输出绝对路径。工具不执行 Git、不读取 `.git` 文件指向的位置、不搜索同级目录。父目录按路径层级查找，文件访问仍跟随符号链接，因此该边界不构成文件系统隔离。
+
 ### 导出 Markdown 报告
 
 添加 `--markdown` 可生成包含检查结果、严重级别、诊断代码、原因和处理建议的表格，方便贴到 Issue 或 PR：
@@ -40,7 +52,7 @@ java -jar build/jdk-compass.jar --project /你的项目路径 --expect 21 --mark
 
 ## 已实现
 
-- 读取项目根目录的 `.java-version`、`.sdkmanrc` 和 `.tool-versions`。
+- 默认读取选定目录的 `.java-version`、`.sdkmanrc` 和 `.tool-versions`；可用 `--search-parents` 向上查找最近的配置目录。
 - 发现多份版本声明冲突，不静默选用其中一个。
 - 比较项目要求、当前运行 JVM 和 `JAVA_HOME` 的 Java 主版本。
 - 检查 JDK 目录、`java`、`javac` 以及 `release` 文件。

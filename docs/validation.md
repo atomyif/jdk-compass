@@ -26,3 +26,11 @@ Windows/Linux and Java 21 have not been run locally. A GitHub Actions matrix is 
 - Combined `--markdown --json` returned 2, with stderr only; JSON schema version 1 remained readable by a JSON parser.
 - Behavior tests covered strict warnings, Markdown cell escaping, environment-value suppression, and omitted local paths.
 - The initial hosted [CI run](https://github.com/atomyif/jdk-compass/actions/runs/38209222884) passed all nine OS/JDK combinations for commit `ed830cc`; each later commit has its own CI result.
+
+## Parent discovery validation — 2026-10-14
+
+- macOS, Oracle JDK 17.0.12: `java Build.java` passed all 37 behavior scenarios and built the 0.3.0 JAR.
+- Packaged JAR launched from a nested working directory: default strict mode reported an unknown requirement; `--search-parents --strict` found the ancestor's Java 17 requirement and returned 0.
+- JSON and Markdown reports retained relative sources without exposing the temporary directory name; JSON schema version 1 remained unchanged.
+- A nested `.git` file stopped traversal; an invalid nearest version file produced an error; `--expect 17` bypassed both discovery and invalid configuration.
+- Behavior tests additionally covered all three version filenames, nearest-directory precedence, same-directory conflicts, directory and worktree boundaries, and configurations without a Java declaration.

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 — no tagged release yet
+
+- Add opt-in `--search-parents` discovery for checks started inside project subdirectories.
+- Use the nearest directory containing supported version filenames; stop at a `.git` entry or filesystem root without merging different directories.
+- Preserve explicit `--expect` overrides, invalid-file and conflict diagnostics, and relative source paths in all report formats.
+- Add regression coverage for default behavior, nearest-directory precedence, repository boundaries, invalid configurations, and report privacy.
+
 ## 0.2.0 — no tagged release yet
 
 - Add `--markdown` reports with the result, severities, finding codes, explanations, and suggested actions.

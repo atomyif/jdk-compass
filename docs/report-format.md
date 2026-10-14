@@ -3,7 +3,7 @@
 ```json
 {
   "schemaVersion": 1,
-  "toolVersion": "0.2.0",
+  "toolVersion": "0.3.0",
   "exitCode": 0,
   "findings": [
     {
@@ -17,6 +17,8 @@
 ```
 
 The example shows one finding, not a complete run. Severity is `INFO`, `WARN`, or `ERROR`. Findings are an array; a code may appear more than once. `JVM_OPTIONS_PRESENT` can appear separately for each relevant variable. Consumers must tolerate new codes, message changes, additional fields, and additional findings within schema version 1. Do not parse the prose.
+
+With `--search-parents`, requirement sources and invalid-file messages can include relative paths such as `../../.sdkmanrc`. Absolute paths remain omitted. Discovery uses only the nearest directory containing a supported filename and does not merge ancestor configurations; existing finding codes and schema version 1 are unchanged.
 
 Current codes:
 
@@ -47,7 +49,7 @@ An invalid invocation returns exit code 2 and prints a short error to stderr; it
 `--markdown` emits a human-readable report to stdout. It contains a heading, a PASS/FAIL result, and one table row per finding:
 
 ```markdown
-## JDK Compass 0.2.0
+## JDK Compass 0.3.0
 
 Result: **PASS**
 

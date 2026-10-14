@@ -14,8 +14,9 @@ import java.util.regex.Pattern;
 
 /** Read-only checks for differences between a project's Java requirement and its environment. */
 public final class Main {
-    public static final String VERSION = "0.2.0";
+    public static final String VERSION = "0.3.0";
     private static final int MAX_FILE_BYTES = 65_536;
+    private static final List<String> VERSION_FILES = List.of(".java-version", ".sdkmanrc", ".tool-versions");
     private static final Pattern VERSION_TOKEN = Pattern.compile(
             "(?:[A-Za-z][A-Za-z0-9]*-)?(1\\.[0-9]+|[0-9]+)(?:[._+\\-][A-Za-z0-9._+\\-]+)?");
 
@@ -25,7 +26,7 @@ public final class Main {
     public record Environment(Path runtimeHome, int runtimeMajor, Map<String, String> variables,
                               boolean windows) { }
     public record Options(Path project, Path javaHome, Integer expected, boolean json, boolean strict,
-                          boolean markdown) { }
+                          boolean markdown, boolean searchParents) { }
     private record Requirement(String source, int major) { }
 
     public static void main(String[] args) {
@@ -42,6 +43,7 @@ public final class Main {
                         JDK Compass — read-only Java environment diagnostics
                         Usage: java -jar jdk-compass.jar [options]
                           --project PATH    Project directory (default: current directory)
+                          --search-parents  Find nearest version files up to the Git or filesystem root
                           --java-home PATH  Inspect this JDK instead of JAVA_HOME
                           --expect MAJOR    Explicit required Java major; overrides project files
                           --json            Emit schema-versioned JSON
@@ -49,7 +51,7 @@ public final class Main {
                           --strict          Return failure for warnings as well as errors
                           --version         Print version
                           --help            Print this help
-                        Auto-detection: .java-version, .sdkmanrc, .tool-versions (project root only).
+                        Auto-detection: .java-version, .sdkmanrc, .tool-versions (selected directory by default).
                         Exit codes: 0 = no errors; 1 = findings failed policy; 2 = invalid arguments.
                         The tool does not run project scripts or change any configuration.
                         """);
@@ -89,11 +91,13 @@ public final class Main {
         boolean json = false;
         boolean strict = false;
         boolean markdown = false;
+        boolean searchParents = false;
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
                 case "--json" -> json = true;
                 case "--strict" -> strict = true;
                 case "--markdown" -> markdown = true;
+                case "--search-parents" -> searchParents = true;
                 case "--project", "--java-home", "--expect" -> {
                     String flag = args[i];
                     if (++i == args.length || args[i].startsWith("--")) {
@@ -115,7 +119,7 @@ public final class Main {
             }
         }
         if (json && markdown) throw new IllegalArgumentException("--json and --markdown cannot be combined");
-        return new Options(project.toAbsolutePath().normalize(), home, expected, json, strict, markdown);
+        return new Options(project.toAbsolutePath().normalize(), home, expected, json, strict, markdown, searchParents);
     }
 
     static List<Finding> inspect(Options options, Environment environment) {
@@ -129,7 +133,7 @@ public final class Main {
         if (options.expected() != null) {
             requirements.add(new Requirement("--expect", options.expected()));
         } else {
-            detectRequirements(options.project(), requirements, results);
+            detectRequirements(options.project(), options.searchParents(), requirements, results);
         }
         Integer expected = null;
         if (requirements.isEmpty()) {
@@ -218,9 +222,18 @@ public final class Main {
         }
     }
 
-    private static void detectRequirements(Path project, List<Requirement> requirements, List<Finding> results) {
-        for (String name : List.of(".java-version", ".sdkmanrc", ".tool-versions")) {
-            Path file = project.resolve(name);
+    private static void detectRequirements(Path project, boolean searchParents,
+                                           List<Requirement> requirements, List<Finding> results) {
+        Path directory = project;
+        String prefix = "";
+        while (searchParents && !hasVersionFile(directory)
+                && !Files.exists(directory.resolve(".git"), java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                && directory.getParent() != null) {
+            directory = directory.getParent();
+            prefix += "../";
+        }
+        for (String name : VERSION_FILES) {
+            Path file = directory.resolve(name);
             if (!Files.exists(file, java.nio.file.LinkOption.NOFOLLOW_LINKS)) continue;
             try {
                 String text = readSmall(file);
@@ -238,12 +251,17 @@ public final class Main {
                 }
                 if (declarations.isEmpty() && !name.equals(".java-version")) continue;
                 if (declarations.size() != 1) throw new IllegalArgumentException("ambiguous version declaration");
-                requirements.add(new Requirement(name, parseMajor(declarations.get(0))));
+                requirements.add(new Requirement(prefix + name, parseMajor(declarations.get(0))));
             } catch (IOException | IllegalArgumentException e) {
-                results.add(new Finding("VERSION_FILE_INVALID", "ERROR", "Cannot interpret " + name + ".",
+                results.add(new Finding("VERSION_FILE_INVALID", "ERROR", "Cannot interpret " + prefix + name + ".",
                         "Use one concrete Java version; aliases and multiple fallback versions are unsupported. Files must be at most 64 KiB."));
             }
         }
+    }
+
+    private static boolean hasVersionFile(Path directory) {
+        return VERSION_FILES.stream().anyMatch(name ->
+                Files.exists(directory.resolve(name), java.nio.file.LinkOption.NOFOLLOW_LINKS));
     }
 
     static int parseMajor(String value) {

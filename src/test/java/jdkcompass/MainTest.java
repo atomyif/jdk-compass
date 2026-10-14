@@ -54,6 +54,83 @@ public final class MainTest {
             Files.writeString(root.resolve(".java-version"), "latest\n");
             check(run(root, "21", Map.of(), "--expect", "21").exit == 0, "explicit override should work");
         });
+        test("parent discovery is opt-in and supports all version files", root -> {
+            Path child = Files.createDirectories(root.resolve("module/src"));
+            for (var entry : Map.of(".java-version", "21\n", ".sdkmanrc", "java=21.0.5-tem\n",
+                    ".tool-versions", "java temurin-21.0.5\n").entrySet()) {
+                Path version = root.resolve(entry.getKey());
+                Files.writeString(version, entry.getValue());
+                check(run(root, "21", Map.of(), "--project", child.toString()).out.contains("REQUIREMENT_UNKNOWN"),
+                        "default must not search parents");
+                Result r = run(root, "21", Map.of(), "--project", child.toString(), "--search-parents", "--strict");
+                check(r.exit == 0 && r.out.contains("../../" + entry.getKey()), r.out);
+                check(Files.readString(version).equals(entry.getValue()), "parent file modified");
+                Files.delete(version);
+            }
+        });
+        test("nearest configuration directory wins without merging ancestors", root -> {
+            Files.writeString(root.resolve(".java-version"), "17\n");
+            Path module = Files.createDirectories(root.resolve("module"));
+            Files.writeString(module.resolve(".sdkmanrc"), "java=21\n");
+            Path child = Files.createDirectories(module.resolve("src"));
+            Result r = run(root, "21", Map.of(), "--project", child.toString(), "--search-parents", "--strict");
+            check(r.exit == 0 && r.out.contains("../.sdkmanrc") && !r.out.contains(".java-version"), r.out);
+            Files.writeString(child.resolve(".java-version"), "21\n");
+            Result local = run(root, "21", Map.of(), "--project", child.toString(), "--search-parents", "--strict");
+            check(local.exit == 0 && local.out.contains("source: [.java-version]") && !local.out.contains(".sdkmanrc"), local.out);
+        });
+        test("parent conflicts and invalid nearest files are not hidden", root -> {
+            Files.writeString(root.resolve(".java-version"), "21\n");
+            Files.writeString(root.resolve(".sdkmanrc"), "java=17\n");
+            Path child = Files.createDirectories(root.resolve("src"));
+            Result conflict = run(root, "21", Map.of(), "--project", child.toString(), "--search-parents");
+            check(conflict.exit == 1 && conflict.out.contains("REQUIREMENT_CONFLICT")
+                    && conflict.out.contains("../.sdkmanrc"), conflict.out);
+            Files.writeString(child.resolve(".java-version"), "latest\n");
+            Result invalid = run(root, "21", Map.of(), "--project", child.toString(), "--search-parents");
+            check(invalid.exit == 1 && invalid.out.contains("VERSION_FILE_INVALID")
+                    && !invalid.out.contains("../.sdkmanrc"), invalid.out);
+            Result override = run(root, "21", Map.of(), "--project", child.toString(),
+                    "--search-parents", "--expect", "21", "--strict");
+            check(override.exit == 0 && override.out.contains("source: [--expect]"), override.out);
+        });
+        test("Git directory and worktree marker stop parent traversal", root -> {
+            Files.writeString(root.resolve(".java-version"), "17\n");
+            for (boolean worktree : List.of(false, true)) {
+                Path repo = Files.createDirectories(root.resolve(worktree ? "worktree" : "repository"));
+                if (worktree) Files.writeString(repo.resolve(".git"), "gitdir: unused-fixture\n");
+                else Files.createDirectory(repo.resolve(".git"));
+                Path child = Files.createDirectories(repo.resolve("src"));
+                Result absent = run(root, "21", Map.of(), "--project", child.toString(), "--search-parents", "--strict");
+                check(absent.exit == 1 && absent.out.contains("REQUIREMENT_UNKNOWN")
+                        && !absent.out.contains("RUNTIME_VERSION_MISMATCH"), absent.out);
+                Files.writeString(repo.resolve(".java-version"), "21\n");
+                Result present = run(root, "21", Map.of(), "--project", child.toString(), "--search-parents", "--strict");
+                check(present.exit == 0 && present.out.contains("../.java-version"), present.out);
+            }
+        });
+        test("nearest supported filename without Java stops discovery", root -> {
+            Files.writeString(root.resolve(".java-version"), "21\n");
+            Path child = Files.createDirectories(root.resolve("src"));
+            Files.writeString(child.resolve(".tool-versions"), "nodejs 22\n");
+            Result r = run(root, "21", Map.of(), "--project", child.toString(), "--search-parents", "--strict");
+            check(r.exit == 1 && r.out.contains("REQUIREMENT_UNKNOWN") && !r.out.contains("../.java-version"), r.out);
+        });
+        test("parent discovery keeps JSON and Markdown paths relative", root -> {
+            Files.writeString(root.resolve(".java-version"), "21\n");
+            Path child = Files.createDirectories(root.resolve("src"));
+            for (String format : List.of("--json", "--markdown")) {
+                Result r = run(root, "21", Map.of(), "--project", child.toString(), "--search-parents", format);
+                check(r.exit == 0 && r.out.contains("../.java-version") && !r.out.contains(root.getFileName().toString()), r.out);
+            }
+        });
+        test("non-regular nearest version path blocks fallback", root -> {
+            Files.writeString(root.resolve(".java-version"), "21\n");
+            Path child = Files.createDirectories(root.resolve("src"));
+            Files.createDirectory(child.resolve(".java-version"));
+            Result r = run(root, "21", Map.of(), "--project", child.toString(), "--search-parents");
+            check(r.exit == 1 && r.out.contains("VERSION_FILE_INVALID") && !r.out.contains("../.java-version"), r.out);
+        });
         test("invalid or ambiguous declarations", root -> {
             for (String value : List.of("", "latest", "21\n17\n", "21 17", "0", "999999999999999999")) {
                 Files.writeString(root.resolve(".java-version"), value);
@@ -183,7 +260,7 @@ public final class MainTest {
             Files.writeString(jdk.resolve("bin/java.exe"), "fixture");
             Files.writeString(jdk.resolve("bin/javac.exe"), "fixture");
             Files.writeString(jdk.resolve("release"), "JAVA_VERSION=\"21.0.5\"\n");
-            var results = Main.inspect(new Main.Options(root, jdk, 21, false, false, false),
+            var results = Main.inspect(new Main.Options(root, jdk, 21, false, false, false, false),
                     new Main.Environment(jdk, 21, Map.of(), true));
             check(results.stream().noneMatch(f -> f.severity().equals("ERROR")), results.toString());
         });
