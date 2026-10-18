@@ -34,3 +34,11 @@ Windows/Linux and Java 21 have not been run locally. A GitHub Actions matrix is 
 - JSON and Markdown reports retained relative sources without exposing the temporary directory name; JSON schema version 1 remained unchanged.
 - A nested `.git` file stopped traversal; an invalid nearest version file produced an error; `--expect 17` bypassed both discovery and invalid configuration.
 - Behavior tests additionally covered all three version filenames, nearest-directory precedence, same-directory conflicts, directory and worktree boundaries, and configurations without a Java declaration.
+
+## Architecture validation — 2026-10-18
+
+- macOS, Oracle JDK 17.0.12: `java Build.java` passed all 43 behavior scenarios and built the 0.4.0 JAR.
+- The packaged JAR recognized matching architecture metadata from the local JDK and passed strict mode.
+- A synthetic JDK with different architecture metadata produced a warning and exit code 0 normally, and exit code 1 under `--strict`. Its placeholder executables were not run.
+- JSON schema version 1 and Markdown reports included the new architecture findings; unsupported architecture metadata and temporary absolute paths remained omitted.
+- Behavior tests covered x86_64, ARM64, and x86 aliases, case and whitespace normalization, missing metadata, explicit JDK overrides, and comparison without a project version requirement.

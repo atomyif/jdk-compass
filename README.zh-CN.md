@@ -4,7 +4,7 @@
 
 一个用于排查 Java 环境不一致问题的命令行工具：项目要求 Java 21，终端却在跑 Java 17，或者 `JAVA_HOME` 指向另一个 JDK 时，给出具体原因和处理建议。
 
-**当前状态：0.3.0 初期 MVP，尚未提供 GitHub Release 安装包。** 可按下方说明从源码构建。初始代码由 AI 辅助开发；后续贡献需要理解、审查并在真实项目中验证。
+**当前状态：0.4.0 初期 MVP，尚未提供 GitHub Release 安装包。** 可按下方说明从源码构建。初始代码由 AI 辅助开发；后续贡献需要理解、审查并在真实项目中验证。
 
 ## 运行
 
@@ -27,6 +27,18 @@ java -jar build/jdk-compass.jar --project /你的项目路径 --expect 21 --json
 路径含空格时请加引号。`--expect` 是明确指定的 Java 主版本，会覆盖自动识别结果。`--strict` 会让警告也返回失败状态，适合 CI。
 
 在编辑器中打开项目目录，设置项目 SDK 为 JDK 17+，在终端执行 `java Build.java` 即可。
+
+### 检查 JDK 架构
+
+工具会自动比较 `JAVA_HOME`（或 `--java-home`）中 JDK 声明的架构与当前 Java 进程报告的架构：
+
+```sh
+java -jar build/jdk-compass.jar --project /你的项目路径 --java-home /你的JDK路径 --json
+```
+
+支持将 `amd64`、`x86_64`、`x64` 视为同一架构，将 `aarch64`、`arm64` 视为同一架构，并识别 `x86` 与 `i386` 至 `i686` 的常见名称，忽略大小写。两边均可识别时输出 `JDK_ARCHITECTURE`；不同则增加 `JDK_ARCHITECTURE_MISMATCH` 警告。单独的架构警告默认不导致失败，`--strict` 下返回退出码 `1`。
+
+缺少或无法识别架构信息时跳过比较，不回显原始值；没有架构诊断不代表匹配。检查依据是 JDK 的 `release` 文件和运行进程的 `os.arch`，不检测物理硬件、模拟运行状态或目标程序能否启动。`--expect` 只覆盖 Java 版本要求，不会关闭架构检查。
 
 ### 从子目录查找配置
 
@@ -56,6 +68,7 @@ java -jar build/jdk-compass.jar --project /你的项目路径 --expect 21 --mark
 - 发现多份版本声明冲突，不静默选用其中一个。
 - 比较项目要求、当前运行 JVM 和 `JAVA_HOME` 的 Java 主版本。
 - 检查 JDK 目录、`java`、`javac` 以及 `release` 文件。
+- 比较可识别的 JDK 架构与当前 Java 进程架构，提示不一致。
 - 当 `JAVA_HOME` 与实际运行环境不是同一个目录时给出警告。
 - 输出文本、JSON 或 Markdown 报告；报告不包含环境变量原文及绝对路径。
 

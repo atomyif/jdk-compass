@@ -6,7 +6,7 @@ A small, dependency-free command-line tool that explains why a Java project's ve
 
 JDK Compass is useful when a project builds on one machine but fails on another, or when an IDE and a terminal appear to use different JDKs. It inspects configuration; it does not switch your JDK or run the project's build scripts.
 
-**Status:** early MVP, version 0.3.0. Build from source using the instructions below; packaged GitHub releases are not available yet. The initial implementation was developed with AI assistance.
+**Status:** early MVP, version 0.4.0. Build from source using the instructions below; packaged GitHub releases are not available yet. The initial implementation was developed with AI assistance.
 
 ## Quick start
 
@@ -41,9 +41,22 @@ In your editor, open this directory, select a JDK 17+ SDK, and use a terminal to
 | Running JVM | Its Java major must equal the selected project requirement |
 | `JAVA_HOME` / `--java-home` | Checks an absolute JDK path, Java/compiler executables, and `release` metadata |
 | Different runtime/JDK home | Warning, even when both have the same major version |
+| JDK architecture | Compares recognized `release` / `OS_ARCH` metadata with the running Java process's `os.arch`; warns on a difference |
 | JVM option environment variables | Reports presence only, not their contents |
 
 By default, all three version files are read only from the directory selected by `--project`. Version comparison is exact at the **major version** level, not a claim about source compatibility, patch level, or vendor compatibility. Aliases such as `latest`, `lts`, and `system`, and multiple fallback versions, are not interpreted. A single optional alphanumeric vendor prefix followed by `-` is accepted; this is not a complete SDKMAN/asdf version grammar.
+
+### Check JDK architectures
+
+Architecture comparison runs automatically for `JAVA_HOME` or an explicit `--java-home`:
+
+```sh
+java -jar build/jdk-compass.jar --project /path/to/project --java-home /path/to/jdk --json
+```
+
+`amd64`, `x86_64`, and `x64` are treated as `x86_64`; `aarch64` and `arm64` as `arm64`; `x86` and `i386`/`i486`/`i586`/`i686` as `x86`. Names are case-insensitive. If both values are recognized, `JDK_ARCHITECTURE` reports the normalized pair. A difference also adds a `JDK_ARCHITECTURE_MISMATCH` warning, which fails only under `--strict` unless other errors exist.
+
+Missing or unsupported architecture values skip this comparison without printing the raw values. No architecture finding means the comparison was unavailable, not that architectures matched. The tool compares metadata and the runtime-reported property; it does not inspect executable headers or detect physical hardware, emulation, or whether a different architecture can run successfully. Architecture checks still run when `--expect` overrides the project's Java version.
 
 ### Find configuration from a subdirectory
 

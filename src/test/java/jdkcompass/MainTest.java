@@ -177,6 +177,60 @@ public final class MainTest {
             Result r = invoke(root, jdk, Map.of("JAVA_HOME", jdk.toString()), "--expect", "21");
             check(r.exit == 1 && r.out.contains("JDK_RELEASE_UNREADABLE"), r.out);
         });
+        test("architecture aliases match without warnings", root -> {
+            for (String[] pair : List.of(new String[]{"amd64", "x86_64"},
+                    new String[]{"x64", "AMD64"}, new String[]{"aarch64", "arm64"},
+                    new String[]{" ARM64 ", " AARCH64 "}, new String[]{"i386", "i686"},
+                    new String[]{"x86", "i586"})) {
+                Result r = architectureReport(root, pair[0], pair[1], "--strict");
+                check(r.exit == 0 && r.out.contains("JDK_ARCHITECTURE")
+                        && !r.out.contains("MISMATCH"), r.out);
+            }
+        });
+        test("architecture mismatch warns and fails strict mode", root -> {
+            for (String[] pair : List.of(new String[]{"arm64", "amd64"},
+                    new String[]{"amd64", "aarch64"}, new String[]{"x86", "amd64"})) {
+                Result ordinary = architectureReport(root, pair[0], pair[1]);
+                check(ordinary.exit == 0 && ordinary.out.contains("[WARN] JDK_ARCHITECTURE_MISMATCH"), ordinary.out);
+                Result strict = architectureReport(root, pair[0], pair[1], "--strict", "--json");
+                check(strict.exit == 1 && strict.out.contains("\"code\":\"JDK_ARCHITECTURE_MISMATCH\",\"severity\":\"WARN\""), strict.out);
+            }
+        });
+        test("missing or unsupported architecture does not invent a mismatch", root -> {
+            for (String value : List.of("", "  ", "riscv64", "UNKNOWN_SECRET_SENTINEL", "arm64/amd64", "arm\\\"64")) {
+                Result selected = architectureReport(root, value, "amd64", "--strict", "--json");
+                check(selected.exit == 0 && !selected.out.contains("JDK_ARCHITECTURE")
+                        && !selected.out.contains("SECRET_SENTINEL"), selected.out);
+                Result runtime = architectureReport(root, "amd64", value, "--strict");
+                check(runtime.exit == 0 && !runtime.out.contains("JDK_ARCHITECTURE")
+                        && !runtime.out.contains("SECRET_SENTINEL"), runtime.out);
+            }
+            Result absent = run(root, "21", Map.of(), "--expect", "21", "--strict");
+            check(absent.exit == 0 && !absent.out.contains("JDK_ARCHITECTURE"), absent.out);
+        });
+        test("architecture comparison does not depend on project requirement", root -> {
+            Path jdk = fakeJdk(root.resolve("jdk"), "21");
+            Files.writeString(jdk.resolve("release"), "JAVA_VERSION=\"21\"\nOS_ARCH=\"arm64\"\n");
+            Result r = invokeArchitecture(root, jdk, Map.of("JAVA_HOME", jdk.toString()), "amd64");
+            check(r.exit == 0 && r.out.contains("REQUIREMENT_UNKNOWN")
+                    && r.out.contains("JDK_ARCHITECTURE_MISMATCH"), r.out);
+        });
+        test("explicit JDK architecture overrides JAVA_HOME", root -> {
+            Path runtime = fakeJdk(root.resolve("runtime"), "21");
+            Path other = fakeJdk(root.resolve("other"), "21");
+            Files.writeString(runtime.resolve("release"), "JAVA_VERSION=\"21\"\nOS_ARCH=\"amd64\"\n");
+            Files.writeString(other.resolve("release"), "JAVA_VERSION=\"21\"\nOS_ARCH=\"arm64\"\n");
+            Result r = invokeArchitecture(root, runtime, Map.of("JAVA_HOME", other.toString()), "x86_64",
+                    "--expect", "21", "--java-home", runtime.toString(), "--strict");
+            check(r.exit == 0 && r.out.contains("--java-home declares x86_64")
+                    && !r.out.contains("JDK_ARCHITECTURE_MISMATCH"), r.out);
+        });
+        test("Markdown includes architecture warning without raw metadata or paths", root -> {
+            Result r = architectureReport(root, "arm64", "amd64", "--markdown");
+            check(r.exit == 0 && r.out.contains("JDK\\_ARCHITECTURE\\_MISMATCH")
+                    && r.out.contains("does not detect physical hardware or emulation")
+                    && !r.out.contains(root.getFileName().toString()), r.out);
+        });
         test("selected home differs from runtime", root -> {
             Path runtime = fakeJdk(root.resolve("runtime"), "21");
             Path other = fakeJdk(root.resolve("other"), "21");
@@ -261,7 +315,7 @@ public final class MainTest {
             Files.writeString(jdk.resolve("bin/javac.exe"), "fixture");
             Files.writeString(jdk.resolve("release"), "JAVA_VERSION=\"21.0.5\"\n");
             var results = Main.inspect(new Main.Options(root, jdk, 21, false, false, false, false),
-                    new Main.Environment(jdk, 21, Map.of(), true));
+                    new Main.Environment(jdk, 21, Map.of(), true, "amd64"));
             check(results.stream().noneMatch(f -> f.severity().equals("ERROR")), results.toString());
         });
         System.out.println("PASS: " + passed + " test scenarios");
@@ -300,12 +354,26 @@ public final class MainTest {
     }
 
     private static Result invoke(Path root, Path runtimeHome, Map<String, String> variables, String... args) {
+        return invokeArchitecture(root, runtimeHome, variables, "amd64", args);
+    }
+
+    private static Result architectureReport(Path root, String selected, String runtime, String... args) throws IOException {
+        Path jdk = fakeJdk(root.resolve("jdk"), "21");
+        Files.writeString(jdk.resolve("release"), "JAVA_VERSION=\"21\"\nOS_ARCH=\"" + selected + "\"\n");
+        String[] combined = new String[args.length + 2];
+        combined[0] = "--expect"; combined[1] = "21";
+        System.arraycopy(args, 0, combined, 2, args.length);
+        return invokeArchitecture(root, jdk, Map.of("JAVA_HOME", jdk.toString()), runtime, combined);
+    }
+
+    private static Result invokeArchitecture(Path root, Path runtimeHome, Map<String, String> variables,
+                                             String runtimeArchitecture, String... args) {
         var stdout = new ByteArrayOutputStream();
         var stderr = new ByteArrayOutputStream();
         String[] combined = new String[args.length + 2];
         combined[0] = "--project"; combined[1] = root.toString();
         System.arraycopy(args, 0, combined, 2, args.length);
-        int exit = Main.run(combined, new Main.Environment(runtimeHome, 21, variables, WINDOWS),
+        int exit = Main.run(combined, new Main.Environment(runtimeHome, 21, variables, WINDOWS, runtimeArchitecture),
                 new PrintStream(stdout, true, StandardCharsets.UTF_8), new PrintStream(stderr, true, StandardCharsets.UTF_8));
         return new Result(exit, stdout.toString(StandardCharsets.UTF_8), stderr.toString(StandardCharsets.UTF_8));
     }

@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
 
 /** Read-only checks for differences between a project's Java requirement and its environment. */
 public final class Main {
-    public static final String VERSION = "0.3.0";
+    public static final String VERSION = "0.4.0";
     private static final int MAX_FILE_BYTES = 65_536;
     private static final List<String> VERSION_FILES = List.of(".java-version", ".sdkmanrc", ".tool-versions");
     private static final Pattern VERSION_TOKEN = Pattern.compile(
@@ -24,7 +24,7 @@ public final class Main {
 
     public record Finding(String code, String severity, String message, String suggestion) { }
     public record Environment(Path runtimeHome, int runtimeMajor, Map<String, String> variables,
-                              boolean windows) { }
+                              boolean windows, String runtimeArchitecture) { }
     public record Options(Path project, Path javaHome, Integer expected, boolean json, boolean strict,
                           boolean markdown, boolean searchParents) { }
     private record Requirement(String source, int major) { }
@@ -32,7 +32,7 @@ public final class Main {
     public static void main(String[] args) {
         var environment = new Environment(Path.of(System.getProperty("java.home")),
                 Runtime.version().feature(), System.getenv(),
-                System.getProperty("os.name").startsWith("Windows"));
+                System.getProperty("os.name").startsWith("Windows"), System.getProperty("os.arch", ""));
         System.exit(run(args, environment, System.out, System.err));
     }
 
@@ -212,6 +212,7 @@ public final class Main {
                 results.add(new Finding("JDK_HOME_VERSION_MISMATCH", "ERROR", label + " declares Java "
                         + major + " but the project requires " + expected + ".", "Choose the project's required JDK."));
             }
+            inspectArchitecture(release.getProperty("OS_ARCH", ""), label, environment, results);
             if (!Files.isSameFile(home, environment.runtimeHome())) {
                 results.add(new Finding("JDK_HOME_DIFFERS_FROM_RUNTIME", "WARN", label
                         + " differs from the JDK running this tool.", "Align the selected JDK and the Java executable used to launch this tool."));
@@ -220,6 +221,35 @@ public final class Main {
             results.add(new Finding("JDK_RELEASE_UNREADABLE", "ERROR", "Cannot read a valid JAVA_VERSION from the selected JDK's release file.",
                     "Check JDK installation completeness and file permissions."));
         }
+    }
+
+    private static void inspectArchitecture(String declared, String label,
+                                            Environment environment, List<Finding> results) {
+        String selected = normalizeArchitecture(declared);
+        String runtime = normalizeArchitecture(environment.runtimeArchitecture());
+        if (selected == null || runtime == null) return;
+        results.add(new Finding("JDK_ARCHITECTURE", "INFO", label + " declares " + selected
+                + "; this Java process reports " + runtime + ".", ""));
+        if (!selected.equals(runtime)) {
+            results.add(new Finding("JDK_ARCHITECTURE_MISMATCH", "WARN", label + " architecture "
+                    + selected + " differs from the running Java process architecture " + runtime + ".",
+                    "Use matching JDK architectures, or confirm that cross-architecture execution is intentional."
+                    + " This comparison does not detect physical hardware or emulation."));
+        }
+    }
+
+    private static String normalizeArchitecture(String value) {
+        if (value == null) return null;
+        String normalized = value.trim();
+        if (normalized.length() >= 2 && normalized.startsWith("\"") && normalized.endsWith("\"")) {
+            normalized = normalized.substring(1, normalized.length() - 1).trim();
+        }
+        return switch (normalized.toLowerCase(java.util.Locale.ROOT)) {
+            case "amd64", "x86_64", "x64" -> "x86_64";
+            case "aarch64", "arm64" -> "arm64";
+            case "x86", "i386", "i486", "i586", "i686" -> "x86";
+            default -> null;
+        };
     }
 
     private static void detectRequirements(Path project, boolean searchParents,

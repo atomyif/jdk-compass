@@ -3,7 +3,7 @@
 ```json
 {
   "schemaVersion": 1,
-  "toolVersion": "0.3.0",
+  "toolVersion": "0.4.0",
   "exitCode": 0,
   "findings": [
     {
@@ -38,18 +38,26 @@ Current codes:
 | JDK_JAVA_MISSING / JDK_JAVAC_MISSING | Required executable absent or not executable |
 | JDK_HOME_VERSION | Java major read from selected JDK metadata |
 | JDK_HOME_VERSION_MISMATCH | Selected JDK major differs from requirement |
+| JDK_ARCHITECTURE | Recognized selected-JDK and runtime architectures, normalized for comparison (INFO) |
+| JDK_ARCHITECTURE_MISMATCH | Recognized selected-JDK architecture differs from runtime architecture (WARN) |
 | JDK_HOME_DIFFERS_FROM_RUNTIME | Selected and running JDK directories differ |
 | JDK_RELEASE_UNREADABLE | Release metadata or home comparison could not be read/validated |
 | JVM_OPTIONS_PRESENT | A JVM startup variable is set; its value is omitted |
 
 An invalid invocation returns exit code 2 and prints a short error to stderr; it produces no report. Diagnostic errors return code 1 and remain represented in JSON. Warnings affect the exit code only under `--strict`.
 
+## Architecture findings
+
+`JDK_ARCHITECTURE` and `JDK_ARCHITECTURE_MISMATCH` are emitted only when the selected JDK has valid version metadata and both architecture values are recognized. The comparison maps `amd64`/`x86_64`/`x64` to `x86_64`, `aarch64`/`arm64` to `arm64`, and `x86`/`i386`/`i486`/`i586`/`i686` to `x86`, ignoring case and surrounding whitespace. Missing or unsupported values are omitted rather than reported as matches. These additions retain JSON schema version 1.
+
+The selected value comes from the `OS_ARCH` field in the JDK's `release` metadata; the runtime value comes from `System.getProperty("os.arch")`. See [OpenJDK release metadata](https://github.com/openjdk/jdk17u/blob/master/make/ReleaseFile.gmk) and [Java system properties](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/System.html). Both are reported metadata, not executable-header validation or physical-hardware detection. A mismatch is a warning because using another architecture can be intentional.
+
 ## Markdown reports
 
 `--markdown` emits a human-readable report to stdout. It contains a heading, a PASS/FAIL result, and one table row per finding:
 
 ```markdown
-## JDK Compass 0.3.0
+## JDK Compass 0.4.0
 
 Result: **PASS**
 

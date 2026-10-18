@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 — no tagged release yet
+
+- Compare recognized JDK `OS_ARCH` metadata with the running Java process's `os.arch` value.
+- Normalize common x86_64, ARM64, and x86 aliases; report mismatches as warnings that fail strict mode.
+- Skip missing or unsupported architecture values without exposing raw metadata or changing version checks.
+- Add coverage for alias equivalence, mismatch exit policies, explicit JDK selection, absent metadata, and report privacy.
+
 ## 0.3.0 — no tagged release yet
 
 - Add opt-in `--search-parents` discovery for checks started inside project subdirectories.
