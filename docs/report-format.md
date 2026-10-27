@@ -3,7 +3,7 @@
 ```json
 {
   "schemaVersion": 1,
-  "toolVersion": "0.4.0",
+  "toolVersion": "0.5.0",
   "exitCode": 0,
   "findings": [
     {
@@ -38,6 +38,7 @@ Current codes:
 | JDK_JAVA_MISSING / JDK_JAVAC_MISSING | Required executable absent or not executable |
 | JDK_HOME_VERSION | Java major read from selected JDK metadata |
 | JDK_HOME_VERSION_MISMATCH | Selected JDK major differs from requirement |
+| JDK_RUNTIME_VERSION_MISMATCH | Selected JDK major differs from the running JVM major (WARN) |
 | JDK_ARCHITECTURE | Recognized selected-JDK and runtime architectures, normalized for comparison (INFO) |
 | JDK_ARCHITECTURE_MISMATCH | Recognized selected-JDK architecture differs from runtime architecture (WARN) |
 | JDK_HOME_DIFFERS_FROM_RUNTIME | Selected and running JDK directories differ |
@@ -45,6 +46,12 @@ Current codes:
 | JVM_OPTIONS_PRESENT | A JVM startup variable is set; its value is omitted |
 
 An invalid invocation returns exit code 2 and prints a short error to stderr; it produces no report. Diagnostic errors return code 1 and remain represented in JSON. Warnings affect the exit code only under `--strict`.
+
+## Runtime and selected-JDK version findings
+
+`JDK_RUNTIME_VERSION_MISMATCH` compares the selected JDK's valid `JAVA_VERSION` metadata with the running JVM's major version. It applies to `JAVA_HOME` and `--java-home`, regardless of whether a project requirement is absent, conflicting, or supplied by `--expect`. The message includes both major versions but no paths or raw metadata. Matching major versions add no finding; patch versions and vendors are not compared.
+
+This is a warning because a different JDK may be selected intentionally. It returns failure under `--strict`; existing requirement errors still return failure without strict mode. The directory comparison remains separate, so this warning can coexist with `JDK_HOME_DIFFERS_FROM_RUNTIME` and the requirement-mismatch findings. Invalid or unreadable version metadata retains `JDK_RELEASE_UNREADABLE` and skips this comparison. JSON schema version 1 is unchanged.
 
 ## Architecture findings
 
@@ -57,7 +64,7 @@ The selected value comes from the `OS_ARCH` field in the JDK's `release` metadat
 `--markdown` emits a human-readable report to stdout. It contains a heading, a PASS/FAIL result, and one table row per finding:
 
 ```markdown
-## JDK Compass 0.4.0
+## JDK Compass 0.5.0
 
 Result: **PASS**
 

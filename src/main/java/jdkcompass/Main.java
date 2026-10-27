@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
 
 /** Read-only checks for differences between a project's Java requirement and its environment. */
 public final class Main {
-    public static final String VERSION = "0.4.0";
+    public static final String VERSION = "0.5.0";
     private static final int MAX_FILE_BYTES = 65_536;
     private static final List<String> VERSION_FILES = List.of(".java-version", ".sdkmanrc", ".tool-versions");
     private static final Pattern VERSION_TOKEN = Pattern.compile(
@@ -211,6 +211,12 @@ public final class Main {
             if (expected != null && major != expected) {
                 results.add(new Finding("JDK_HOME_VERSION_MISMATCH", "ERROR", label + " declares Java "
                         + major + " but the project requires " + expected + ".", "Choose the project's required JDK."));
+            }
+            if (major != environment.runtimeMajor()) {
+                results.add(new Finding("JDK_RUNTIME_VERSION_MISMATCH", "WARN", label + " declares Java "
+                        + major + " but this diagnostic process runs on Java " + environment.runtimeMajor() + ".",
+                        "Align the Java executable used to launch the tool with the selected JDK,"
+                        + " or confirm that inspecting a different Java version is intentional."));
             }
             inspectArchitecture(release.getProperty("OS_ARCH", ""), label, environment, results);
             if (!Files.isSameFile(home, environment.runtimeHome())) {

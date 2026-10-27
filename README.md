@@ -6,7 +6,7 @@ A small, dependency-free command-line tool that explains why a Java project's ve
 
 JDK Compass is useful when a project builds on one machine but fails on another, or when an IDE and a terminal appear to use different JDKs. It inspects configuration; it does not switch your JDK or run the project's build scripts.
 
-**Status:** early MVP, version 0.4.0. Build from source using the instructions below; packaged GitHub releases are not available yet. The initial implementation was developed with AI assistance.
+**Status:** early MVP, version 0.5.0. Build from source using the instructions below; packaged GitHub releases are not available yet. The initial implementation was developed with AI assistance.
 
 ## Quick start
 
@@ -41,10 +41,17 @@ In your editor, open this directory, select a JDK 17+ SDK, and use a terminal to
 | Running JVM | Its Java major must equal the selected project requirement |
 | `JAVA_HOME` / `--java-home` | Checks an absolute JDK path, Java/compiler executables, and `release` metadata |
 | Different runtime/JDK home | Warning, even when both have the same major version |
+| Different runtime/JDK major | Warning with both versions, even without a project requirement |
 | JDK architecture | Compares recognized `release` / `OS_ARCH` metadata with the running Java process's `os.arch`; warns on a difference |
 | JVM option environment variables | Reports presence only, not their contents |
 
 By default, all three version files are read only from the directory selected by `--project`. Version comparison is exact at the **major version** level, not a claim about source compatibility, patch level, or vendor compatibility. Aliases such as `latest`, `lts`, and `system`, and multiple fallback versions, are not interpreted. A single optional alphanumeric vendor prefix followed by `-` is accepted; this is not a complete SDKMAN/asdf version grammar.
+
+### Compare the running JVM and selected JDK
+
+The tool compares the running JVM's Java major with the selected JDK's `release` metadata, even when no supported project version file exists. For example, launching the tool on Java 17 with `JAVA_HOME` pointing to Java 21 adds `JDK_RUNTIME_VERSION_MISMATCH`, showing both versions and suggesting how to align them.
+
+The same comparison applies to an explicit `--java-home`, including when `--expect` is supplied or project version files conflict. It is a warning because inspecting a different JDK can be intentional; `--strict` treats it as a failure. Existing project-requirement errors and the separate directory-difference warning still apply. Unreadable or invalid version metadata produces `JDK_RELEASE_UNREADABLE` instead of a version comparison. Only major versions are compared, without executing the selected JDK.
 
 ### Check JDK architectures
 

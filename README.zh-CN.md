@@ -4,7 +4,7 @@
 
 一个用于排查 Java 环境不一致问题的命令行工具：项目要求 Java 21，终端却在跑 Java 17，或者 `JAVA_HOME` 指向另一个 JDK 时，给出具体原因和处理建议。
 
-**当前状态：0.4.0 初期 MVP，尚未提供 GitHub Release 安装包。** 可按下方说明从源码构建。初始代码由 AI 辅助开发；后续贡献需要理解、审查并在真实项目中验证。
+**当前状态：0.5.0 初期 MVP，尚未提供 GitHub Release 安装包。** 可按下方说明从源码构建。初始代码由 AI 辅助开发；后续贡献需要理解、审查并在真实项目中验证。
 
 ## 运行
 
@@ -27,6 +27,12 @@ java -jar build/jdk-compass.jar --project /你的项目路径 --expect 21 --json
 路径含空格时请加引号。`--expect` 是明确指定的 Java 主版本，会覆盖自动识别结果。`--strict` 会让警告也返回失败状态，适合 CI。
 
 在编辑器中打开项目目录，设置项目 SDK 为 JDK 17+，在终端执行 `java Build.java` 即可。
+
+### 比较运行 JVM 与所选 JDK 的版本
+
+即使项目没有版本配置，也会比较当前 JVM 与所选 JDK 的 Java 主版本。例如工具运行在 Java 17 上，而 `JAVA_HOME` 指向 Java 21 时，会输出 `JDK_RUNTIME_VERSION_MISMATCH`，列出两个主版本并给出调整建议。
+
+该检查同样适用于 `--java-home`，指定 `--expect` 或项目版本文件冲突时仍会执行。考虑到用户可能有意检查另一套 JDK，版本差异作为警告，`--strict` 下视为失败；原有的项目版本错误和目录差异警告仍会保留。无法读取有效版本元数据时报告 `JDK_RELEASE_UNREADABLE`，不进行该比较。检查只比较主版本，不运行所选 JDK。
 
 ### 检查 JDK 架构
 
@@ -67,6 +73,7 @@ java -jar build/jdk-compass.jar --project /你的项目路径 --expect 21 --mark
 - 默认读取选定目录的 `.java-version`、`.sdkmanrc` 和 `.tool-versions`；可用 `--search-parents` 向上查找最近的配置目录。
 - 发现多份版本声明冲突，不静默选用其中一个。
 - 比较项目要求、当前运行 JVM 和 `JAVA_HOME` 的 Java 主版本。
+- 没有项目版本声明时，也能提示当前 JVM 与所选 JDK 的主版本差异。
 - 检查 JDK 目录、`java`、`javac` 以及 `release` 文件。
 - 比较可识别的 JDK 架构与当前 Java 进程架构，提示不一致。
 - 当 `JAVA_HOME` 与实际运行环境不是同一个目录时给出警告。

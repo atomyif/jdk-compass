@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0 — no tagged release yet
+
+- Warn when the selected JDK's declared Java major differs from the running JVM, even without a project version requirement.
+- Apply the comparison to both `JAVA_HOME` and `--java-home`, independently of requirement discovery and `--expect`.
+- Include both major versions and an action suggestion in text, JSON, and Markdown reports; strict mode treats the new warning as a failure.
+
 ## 0.4.0 — no tagged release yet
 
 - Compare recognized JDK `OS_ARCH` metadata with the running Java process's `os.arch` value.
